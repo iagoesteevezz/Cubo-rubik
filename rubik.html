@@ -13,7 +13,7 @@
             top: 20px;
             left: 20px;
             color: white;
-            pointer-events: none; /* Let clicks pass through to canvas if needed */
+            pointer-events: none; 
         }
         
         .controls-area {
@@ -84,34 +84,32 @@
 </div>
 
 <script>
-    // --- Configuration ---
+    // Configuration 
     const CUBE_SIZE = 1;
     const SPACING = 0.02;
     const TOTAL_SIZE = CUBE_SIZE + SPACING;
-    const ANIMATION_SPEED = Math.PI / 10; // Speed of rotation per frame
+    const ANIMATION_SPEED = Math.PI / 10; 
     
-    // --- Colors (Standard Scheme) ---
+    // Colors 
     const COLORS = {
-        U: 0xFFFFFF, // White (Up)
-        D: 0xFFD500, // Yellow (Down)
-        R: 0xB90000, // Red (Right)
-        L: 0xFF5800, // Orange (Left)
-        F: 0x009E60, // Green (Front)
-        B: 0x0051BA, // Blue (Back)
-        CORE: 0x282828 // Black internal
+        U: 0xFFFFFF, 
+        D: 0xFFD500,
+        R: 0xB90000, 
+        L: 0xFF5800, 
+        F: 0x009E60, 
+        B: 0x0051BA, 
+        CORE: 0x282828 
     };
 
-    // --- State ---
+    // State
     let scene, camera, renderer, controls;
-    let allCubies = []; // Array holding the 27 mesh objects
+    let allCubies = []; 
     let isAnimating = false;
     let moveQueue = [];
-    let moveHistory = []; // Stack to track moves for solving
-    let pivot; // Invisible object to parent cubies for rotation
+    let moveHistory = []; 
+    let pivot; 
 
-    // --- Init ---
     function init() {
-        // Scene Setup
         scene = new THREE.Scene();
         scene.background = new THREE.Color(0x222222);
 
@@ -143,7 +141,7 @@
 
         // Pivot Helper
         pivot = new THREE.Object3D();
-        pivot.rotation.order = 'XYZ'; // Important for Euler rotations
+        pivot.rotation.order = 'XYZ'; 
         scene.add(pivot);
 
         // Resize Handler
@@ -156,11 +154,10 @@
     function createRubiksCube() {
         const geometry = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE);
         
-        // Generate 27 Cubies
         for (let x = -1; x <= 1; x++) {
             for (let y = -1; y <= 1; y++) {
                 for (let z = -1; z <= 1; z++) {
-                    // Create materials based on position (only color outer faces)
+
                     const materials = [
                         new THREE.MeshPhongMaterial({ color: x === 1 ? COLORS.R : COLORS.CORE }), // Right
                         new THREE.MeshPhongMaterial({ color: x === -1 ? COLORS.L : COLORS.CORE }), // Left
@@ -172,16 +169,16 @@
 
                     const cubie = new THREE.Mesh(geometry, materials);
                     
-                    // Position with spacing
+
                     cubie.position.set(x * TOTAL_SIZE, y * TOTAL_SIZE, z * TOTAL_SIZE);
                     
-                    // Store internal logic data
+
                     cubie.userData = { 
                         isCore: (x===0 && y===0 && z===0),
                         initialPosition: new THREE.Vector3(x, y, z)
                     };
 
-                    // Edges for visual crispness
+
                     const edges = new THREE.EdgesGeometry(geometry);
                     const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 }));
                     cubie.add(line);
@@ -193,10 +190,7 @@
         }
     }
 
-    // --- Logic ---
-
-    // Queue a move: Axis (char), Direction (1 or -1)
-    // Axes: 'x', 'y', 'z' derived from Face notation
+    
     function queueMove(face, direction) {
         moveQueue.push({ face, direction });
     }
@@ -206,9 +200,9 @@
 
         const move = moveQueue.shift();
         const axis = getAxisFromFace(move.face);
-        const layerVal = getLayerValue(move.face); // -1, 0, or 1
+        const layerVal = getLayerValue(move.face); 
         
-        // Push to history for solving (unless we are currently solving/reversing)
+       
         if (!move.isSolver) {
             moveHistory.push(move);
         }
@@ -236,11 +230,11 @@
     function startAnimation(axis, layerVal, direction) {
         isAnimating = true;
 
-        // 1. Select Cubies in the layer
+
         const activeCubies = [];
         
         allCubies.forEach(cubie => {
-            // Get local position relative to world (rounding is crucial due to floats)
+
             const localPos = cubie.position.clone().divideScalar(TOTAL_SIZE);
             
             if (Math.abs(localPos[axis] - layerVal) < 0.1) {
@@ -248,34 +242,27 @@
             }
         });
 
-        // 2. Attach to Pivot
+
         pivot.rotation.set(0, 0, 0);
-        pivot.position.set(0, 0, 0); // Ensure pivot is at center
+        pivot.position.set(0, 0, 0);
         
         activeCubies.forEach(cubie => {
-            // Three.js util to attach object to parent without moving it visually
+
             pivot.attach(cubie);
         });
 
         // 3. Animate
-        const targetRotation = (Math.PI / 2) * direction * -1; // -1 to match standard notation direction
-        // Adjust direction for specific faces to match standard notation
-        // (Standard Notation: Clockwise looking at the face)
+        const targetRotation = (Math.PI / 2) * direction * -1; 
         let visualDirection = direction;
         
-        // Standard notation corrections
-        if (axis === 'x' && layerVal === -1) visualDirection *= -1; // L vs R
-        if (axis === 'y' && layerVal === -1) visualDirection *= -1; // D vs U
-        if (axis === 'z' && layerVal === 1) visualDirection *= -1;  // F vs B (Three.js Z is + towards screen, usually)
-        // Wait, ThreeJS Right Hand Rule:
-        // X+ Right, Y+ Up, Z+ Out of screen. 
-        // R (x=1) Clockwise = Rotation around X negative? Let's stick to visual logic:
-        
-        // Simplified visual logic logic:
-        // We will animate `pivot.rotation[axis]`
+
+        if (axis === 'x' && layerVal === -1) visualDirection *= -1;
+        if (axis === 'y' && layerVal === -1) visualDirection *= -1;
+        if (axis === 'z' && layerVal === 1) visualDirection *= -1;  
+
+
         
         const animateStep = () => {
-            // Check if we are close to target
             const currentRot = pivot.rotation[axis];
             const remaining = targetRotation - currentRot;
 
@@ -283,19 +270,11 @@
                 pivot.rotation[axis] += (remaining > 0 ? 1 : -1) * ANIMATION_SPEED;
                 requestAnimationFrame(animateStep);
             } else {
-                // Snap to end
+
                 pivot.rotation[axis] = targetRotation;
                 finalizeMove(activeCubies);
             }
         };
-        
-        // Correct rotation direction logic based on standard Rubik's notation vs Three.js axes
-        // R (Right Face): X=1. Clockwise around X-axis. (-PI/2)
-        // L (Left Face): X=-1. Clockwise around X-axis. (PI/2)
-        // U (Up Face): Y=1. Clockwise around Y-axis. (-PI/2)
-        // D (Down Face): Y=-1. Clockwise around Y-axis. (PI/2)
-        // F (Front Face): Z=1. Clockwise around Z-axis. (-PI/2)
-        // B (Back Face): Z=-1. Clockwise around Z-axis. (PI/2)
         
         let rotMult = -1;
         if (axis === 'x' && layerVal === -1) rotMult = 1;
@@ -304,13 +283,12 @@
         
         const finalTarget = (Math.PI / 2) * direction * rotMult;
         
-        // Redefine animate loop for variable target
         const performAnimation = () => {
              const currentRot = pivot.rotation[axis];
              const dist = finalTarget - currentRot;
              
              if (Math.abs(dist) > 0.05) {
-                 pivot.rotation[axis] += Math.sign(dist) * 0.15; // Speed
+                 pivot.rotation[axis] += Math.sign(dist) * 0.15; 
                  renderer.render(scene, camera);
                  requestAnimationFrame(performAnimation);
              } else {
@@ -324,17 +302,15 @@
     }
 
     function finalizeMove(activeCubies) {
-        pivot.updateMatrixWorld(); // Update pivot transform
+        pivot.updateMatrixWorld(); 
         
         activeCubies.forEach(cubie => {
-            scene.attach(cubie); // Detach from pivot, re-attach to scene keeping transform
+            scene.attach(cubie);
             
-            // Round positions to integers to prevent drift
             cubie.position.x = Math.round(cubie.position.x / TOTAL_SIZE) * TOTAL_SIZE;
             cubie.position.y = Math.round(cubie.position.y / TOTAL_SIZE) * TOTAL_SIZE;
             cubie.position.z = Math.round(cubie.position.z / TOTAL_SIZE) * TOTAL_SIZE;
             
-            // Round rotation to nearest 90 degrees
             cubie.rotation.x = Math.round(cubie.rotation.x / (Math.PI/2)) * (Math.PI/2);
             cubie.rotation.y = Math.round(cubie.rotation.y / (Math.PI/2)) * (Math.PI/2);
             cubie.rotation.z = Math.round(cubie.rotation.z / (Math.PI/2)) * (Math.PI/2);
@@ -342,12 +318,10 @@
             cubie.updateMatrix();
         });
 
-        pivot.rotation.set(0, 0, 0); // Reset pivot
+        pivot.rotation.set(0, 0, 0);
         isAnimating = false;
-        processQueue(); // Next move
+        processQueue(); 
     }
-
-    // --- Scramble & Solve ---
 
     function scrambleCube() {
         if (isAnimating) return;
@@ -365,15 +339,13 @@
         if (isAnimating) return;
         if (moveHistory.length === 0) return;
 
-        // Create a copy of history to reverse
         const historyCopy = [...moveHistory];
-        moveHistory = []; // Clear history so solve moves aren't added back
+        moveHistory = [];
 
-        // Reverse order and invert direction
         historyCopy.reverse().forEach(move => {
             moveQueue.push({
                 face: move.face,
-                direction: move.direction * -1, // Invert direction
+                direction: move.direction * -1,
                 isSolver: true
             });
         });
@@ -390,13 +362,13 @@
     function animate() {
         requestAnimationFrame(animate);
         controls.update();
-        processQueue(); // Check for moves
+        processQueue();
         renderer.render(scene, camera);
     }
 
-    // Start
     init();
 
 </script>
 </body>
+
 </html>
